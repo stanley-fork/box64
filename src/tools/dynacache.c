@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <utime.h>
 #endif
 
 #include "os.h"
@@ -638,8 +639,8 @@ int ReadDynaCache(const char* folder, const char* name, mapping_t* mapping, int 
     if(!mapping) {
         // check the blocks can be read without reading...
         for(int i=0; i<header.nblocks; ++i) {
-            p+=(blocks[i].type==COMP_NONE)?blocks[i].block.size:blocks[i].compsize;
-            if(fseek(f, (blocks[i].type==COMP_NONE)?blocks[i].block.size:blocks[i].compsize, SEEK_CUR)<0 || ftell(f)!=p) {
+            p+=(blocks[i].type==COMP_NONE)?blocks[i].block.size:ALIGN(blocks[i].compsize);
+            if(fseek(f, (blocks[i].type==COMP_NONE)?blocks[i].block.size:ALIGN(blocks[i].compsize), SEEK_CUR)<0 || ftell(f)!=p) {
                 if(verbose) printf_log_prefix(0, LOG_NONE, "Error reading a block\n");
                 fclose(f);
                 return DCERR_FERROR;
@@ -717,6 +718,8 @@ int ReadDynaCache(const char* folder, const char* name, mapping_t* mapping, int 
         for(size_t i=0; i<header.nUnalignedAddresses; ++i)
             add_unaligned_address(unalignedAddresses[i]+delta_map);
         dynarec_log(LOG_INFO, "Loaded DynaCache for %s, with %d blocks\n", mapping->fullname, header.nblocks);
+        // try to update mtime for used cache file, so that it is less likely to be pruned
+        utime(filename, NULL);
     }
     fclose(f);
     return DCERR_OK;
